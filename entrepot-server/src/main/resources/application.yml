@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: entrepot-server
+  profiles:
+    active: dev
+
+app:
+  name: '@project.name@'
+  version: 'v@project.version@'

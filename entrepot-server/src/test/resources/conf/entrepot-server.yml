@@ -1,0 +1,83 @@
+# I/O threads
+#io-threads: 0
+
+servers:
+- type: http
+  port: 28080
+  connection-timeout: 60s
+  #max-http-post-size: 16M
+#- port: 28443
+  #connection-timeout: 60s
+  #ssl:
+    #enabled: true
+    #key-cert-chain-file: /path/to/cert.pem
+    #key-file: /path/to/key.pem
+    #key-password: password
+  #max-http-post-size: 16M
+- type: resp3
+  address: 127.0.0.1
+  port: 26379
+  connection-timeout: 300s
+
+# HTTP routes
+http.routes:
+- path: /api/entrepot/wharves/{wharf}/cooks/www
+  method: POST
+  path-var: wharf
+  type: cook
+  processor: merge-json-fields
+  allowed-content-types:
+  - application/json
+  fields:
+    ip: $address
+    time: $timestamp
+    datetime: $datetime
+    uuid: $uuid-v1
+    md5: $md5
+- path: /api/entrepot/wharves/{wharf}/raws
+  method: POST
+  path-var: wharf
+  type: raw
+- path: /api/entrepot/wharves/{wharf}/cooks/www
+  method: GET
+  path-var: wharf
+  query-var: data
+  type: cook
+  processor: merge-json-fields
+  fields:
+    ip: $address
+    time: $timestamp
+    datetime: $datetime
+    uuid: $uuid-v1
+    md5: $md5
+
+# RESP/RESP3 commands
+# All supported commands: APPEND, SET, SETNX, RPUSH, RPUSHX, LPUSH, LPUSHX, SADD
+resp.commands:
+- command: RPUSH
+  batch-enabled: true
+  type: raw
+- command: SADD
+  batch-enabled: true
+  type: cook
+  processor: merge-json-fields
+  fields:
+    ip: $address
+    time: $timestamp
+    datetime: $datetime
+    uuid: $uuid-v1
+    md5: $md5
+    crc32c: $crc32c
+
+# Storage configuration for dynamic wharves.
+storage:
+  # DIR path for storage
+  # The default value is `storage`.
+  #dir: /var/lib/entrepot/http/storage
+  # If true then the program will create sub-directories with the same name of the wharf automatically.
+  # The default is `false`.
+  name-as-folder: false
+  # The name pattern of the stored file.
+  file-pattern: "%name-%d{yyyy-MM-dd'T'HH}.log"
+  # The period between each data forces. The default is null.
+  force-period: 3s

@@ -1,0 +1,16 @@
+[Unit]
+Description=Entrepot Server
+After=network.target
+
+[Service]
+Type=simple
+PIDFile=/run/entrepot-server.pid
+SuccessExitStatus=130
+KillSignal=SIGINT
+LimitNOFILE=100000
+ExecStart=/opt/entrepot-server/startup.sh
+User=root
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

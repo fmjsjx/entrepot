@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+
+  <Properties>
+    <Property name="LOG_EXCEPTION_CONVERSION_WORD">%xwEx</Property>
+    <Property name="LOG_LEVEL_PATTERN">%5p</Property>
+    <Property name="LOG_DATEFORMAT_PATTERN">yyyy-MM-dd HH:mm:ss.SSS</Property>
+    <Property name="CONSOLE_LOG_PATTERN">%clr{%d{${LOG_DATEFORMAT_PATTERN}}}{faint} %clr{${LOG_LEVEL_PATTERN}} %clr{%pid}{magenta} %clr{---}{faint} %clr{[%15.15t]}{faint} %clr{%-40.40c{1.}}{cyan} %clr{:}{faint} %m%n${sys:LOG_EXCEPTION_CONVERSION_WORD}</Property>
+    <Property name="FILE_LOG_PATTERN">%d{${LOG_DATEFORMAT_PATTERN}} ${LOG_LEVEL_PATTERN} %pid --- [%t] %-40.40c{1.} : %m%n${sys:LOG_EXCEPTION_CONVERSION_WORD}</Property>
+    
+    <Property name="FILE_LOG_DIR">logs</Property>
+    
+    <Property name="ROLLING_LOG_FILE_NAME">${sys:FILE_LOG_DIR}/entrepot-server.log</Property>
+    <Property name="ROLLING_LOG_FILE_PATTERN">${sys:FILE_LOG_DIR}/entrepot-server-%d{yyyy-MM-dd}.log</Property>
+    <Property name="ROLLING_LOG_PATTERN">${sys:FILE_LOG_PATTERN}</Property>
+    
+    <Property name="ACCESS_LOG_FILE_NAME">${sys:FILE_LOG_DIR}/access.log</Property>
+    <Property name="ACCESS_LOG_FILE_PATTERN">${sys:FILE_LOG_DIR}/$${date:yyyy-MM}/access-%d{yyyy-MM-dd}.log.gz</Property>
+    <Property name="ACCESS_LOG_PATTERN">%d{${LOG_DATEFORMAT_PATTERN}} ${LOG_LEVEL_PATTERN} %m%n</Property>
+
+    <Property name="ERROR_LOG_FILE_NAME">${sys:FILE_LOG_DIR}/error.log</Property>
+    <Property name="ERROR_LOG_FILE_PATTERN">${sys:FILE_LOG_DIR}/error-%d{yyyy-MM-dd}.log</Property>
+    <Property name="ERROR_LOG_PATTERN">${sys:FILE_LOG_PATTERN}</Property>
+  </Properties>
+
+  <Appenders>
+
+    <Console name="Console" target="SYSTEM_OUT" follow="true">
+      <PatternLayout pattern="${sys:CONSOLE_LOG_PATTERN}" />
+    </Console>
+
+    <RollingRandomAccessFile name="RollingLogRollingFile" fileName="${ROLLING_LOG_FILE_NAME}"
+      filePattern="${ROLLING_LOG_FILE_PATTERN}" immediateFlush="false">
+      <PatternLayout pattern="${ROLLING_LOG_PATTERN}" />
+      <Policies>
+        <TimeBasedTriggeringPolicy />
+      </Policies>
+    </RollingRandomAccessFile>
+
+    <RollingRandomAccessFile name="AccessLogRollingFile" fileName="${ACCESS_LOG_FILE_NAME}"
+      filePattern="${ACCESS_LOG_FILE_PATTERN}" immediateFlush="false">
+      <PatternLayout pattern="${sys:ACCESS_LOG_PATTERN}" />
+      <Policies>
+        <TimeBasedTriggeringPolicy />
+      </Policies>
+      <DefaultRolloverStrategy>
+        <Delete basePath="${sys:FILE_LOG_DIR}" maxDepth="2">
+          <IfFileName glob="*/access-*.log.gz" />
+          <IfLastModified age="30d" />
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingRandomAccessFile>
+
+    <RollingRandomAccessFile name="ErrorLogRollingFile" fileName="${ERROR_LOG_FILE_NAME}"
+      filePattern="${ERROR_LOG_FILE_PATTERN}" immediateFlush="false">
+      <PatternLayout pattern="${ERROR_LOG_PATTERN}" />
+      <ThresholdFilter level="ERROR" />
+      <Policies>
+        <TimeBasedTriggeringPolicy />
+      </Policies>
+    </RollingRandomAccessFile>
+
+  </Appenders>
+  
+  <Loggers>
+    <AsyncLogger name="org.springframework.boot" level="info" includeLocation="false" />
+    <AsyncLogger name="com.github.fmjsjx" level="info" includeLocation="false" />
+    <AsyncLogger name="com.github.fmjsjx.entrepot" level="info" includeLocation="false" />
+
+    <AsyncLogger name="accessLogger" level="info" includeLocation="false" additivity="false">
+      <AppenderRef ref="AccessLogRollingFile" />
+    </AsyncLogger>
+    
+    <AsyncRoot level="warn">
+      <AppenderRef ref="Console" />
+      <AppenderRef ref="RollingLogRollingFile" />
+      <AppenderRef ref="ErrorLogRollingFile" />
+    </AsyncRoot>
+  </Loggers>
+
+</Configuration>
