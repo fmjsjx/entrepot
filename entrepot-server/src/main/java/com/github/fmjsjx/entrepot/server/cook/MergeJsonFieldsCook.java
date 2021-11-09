@@ -33,49 +33,26 @@ public class MergeJsonFieldsCook implements Cook {
         var fieldMergers = this.fieldMergers = new ArrayList<>(fields.size());
         fields.forEach((field, value) -> {
             switch (value) {
-            case "$address":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.ip)));
-                break;
-            case "$timestamp":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getTimestamp())));
-                break;
-            case "$unix-time":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getUnixTime())));
-                break;
-            case "$iso-date":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().toLocalDate())));
-                break;
-            case "$iso-time":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().toLocalTime().format(ISO_TIME))));
-                break;
-            case "$iso-datetime":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().format(ISO_DATETIME))));
-                break;
-            case "$datetime":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().format(DATETIME))));
-                break;
-            case "$uuid":
-            case "$uuid-v1":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(UuidUtil.getTimeBasedUuid().toString())));
-                break;
-            case "$uuid-v4":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(UUID.randomUUID().toString())));
-                break;
-            case "$md5":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(DigestUtil.md5AsHex(ctx.raw))));
-                break;
-            case "$sha1":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(DigestUtil.sha1AsHex(ctx.raw))));
-                break;
-            case "$sha256":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(DigestUtil.sha256AsHex(ctx.raw))));
-                break;
-            case "$crc32":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ChecksumUtil.crc32(ctx.raw))));
-                break;
-            case "$crc32c":
-                fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ChecksumUtil.crc32c(ctx.raw))));
-                break;
+            case "$address" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.ip)));
+            case "$timestamp" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getTimestamp())));
+            case "$unix-time" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getUnixTime())));
+            case "$iso-date" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().toLocalDate())));
+            case "$iso-time" -> fieldMergers
+                    .add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().toLocalTime().format(ISO_TIME))));
+            case "$iso-datetime" -> fieldMergers
+                    .add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().format(ISO_DATETIME))));
+            case "$datetime" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ctx.getDatetime().format(DATETIME))));
+            case "$uuid", "$uuid-v1" -> fieldMergers
+                    .add(ctx -> ctx.put(field, Any.wrap(UuidUtil.getTimeBasedUuid().toString())));
+            case "$uuid-v4" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(UUID.randomUUID().toString())));
+            case "$md5" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(DigestUtil.md5AsHex(ctx.raw))));
+            case "$sha1" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(DigestUtil.sha1AsHex(ctx.raw))));
+            case "$sha256" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(DigestUtil.sha256AsHex(ctx.raw))));
+            case "$crc32" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ChecksumUtil.crc32(ctx.raw))));
+            case "$crc32c" -> fieldMergers.add(ctx -> ctx.put(field, Any.wrap(ChecksumUtil.crc32c(ctx.raw))));
+            default -> {
+                // do nothing
+            }
             }
         });
     }

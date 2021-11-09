@@ -35,13 +35,10 @@ public class RespUtil {
 
     public static final BiConsumer<ChannelHandlerContext, RedisRequest> ping() {
         return (ctx, msg) -> {
-            int size = msg.size();
-            if (msg.size() == 1) {
-                ctx.writeAndFlush(RespMessages.pong()).addListener(READ_NEXT);
-            } else if (size == 2) {
-                ctx.writeAndFlush(msg.argument(1).retainedDuplicate()).addListener(READ_NEXT);
-            } else {
-                ctx.writeAndFlush(WRONG_NUMBER_OF_ARGUMENTS_FOR_COMMAND_PING).addListener(READ_NEXT);
+            switch (msg.size()) {
+            case 1 -> ctx.writeAndFlush(RespMessages.pong()).addListener(READ_NEXT);
+            case 2 -> ctx.writeAndFlush(msg.argument(1).retainedDuplicate()).addListener(READ_NEXT);
+            default -> ctx.writeAndFlush(WRONG_NUMBER_OF_ARGUMENTS_FOR_COMMAND_PING).addListener(READ_NEXT);
             }
         };
     }

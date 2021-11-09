@@ -52,21 +52,12 @@ public class TimeBasedPolicy extends AbstractRollingPolicy {
     }
 
     private LocalDateTime nextDatetime(LocalDateTime datetime, LocalDate date) {
-        LocalDateTime nextDatetime;
-        if (rollingPeriod == RollingPeriod.DAILY) {
-            // daily
-            nextDatetime = date.plusDays(1).atStartOfDay();
-        } else if (rollingPeriod == RollingPeriod.HOURLY) {
-            // hourly
-            nextDatetime = LocalDateTime.of(date, LocalTime.of(datetime.getHour(), 0)).plusHours(1);
-        } else if (rollingPeriod == RollingPeriod.MINUTELY) {
-            // minutely
-            nextDatetime = datetime.plusMinutes(1).withSecond(0);
-        } else {
-            // monthly
-            nextDatetime = date.plusMonths(1).withDayOfMonth(1).atStartOfDay();
-        }
-        return nextDatetime;
+        return switch (rollingPeriod) {
+        case DAILY -> date.plusDays(1).atStartOfDay();
+        case HOURLY -> LocalDateTime.of(date, LocalTime.of(datetime.getHour(), 0)).plusHours(1);
+        case MINUTELY -> datetime.plusMinutes(1).withSecond(0);
+        default -> date.plusMonths(1).withDayOfMonth(1).atStartOfDay();
+        };
     }
 
     @Override

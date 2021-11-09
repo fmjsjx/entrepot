@@ -12,22 +12,15 @@ public class DurationUtil {
         if (m.matches()) {
             var value = Long.parseLong(m.group(1));
             var unit = m.group(2).toLowerCase();
-            switch (unit) {
-            case "ns":
-                return Duration.ofNanos(value);
-            case "ms":
-                return Duration.ofMillis(value);
-            case "s":
-                return Duration.ofSeconds(value);
-            case "m":
-                return Duration.ofMinutes(value);
-            case "h":
-                return Duration.ofHours(value);
-            case "d":
-                return Duration.ofDays(value);
-            default:
-                throw new IllegalArgumentException("unknown duration unit for `" + text + "`");
-            }
+            return switch (unit) {
+            case "ns" -> Duration.ofNanos(value);
+            case "ms" -> Duration.ofMillis(value);
+            case "s" -> Duration.ofSeconds(value);
+            case "m" -> Duration.ofMinutes(value);
+            case "h" -> Duration.ofHours(value);
+            case "d" -> Duration.ofDays(value);
+            default -> throw new IllegalArgumentException("unknown duration unit for `" + text + "`");
+            };
         }
         throw new IllegalArgumentException("parse duration failed for `" + text + "`");
     }
