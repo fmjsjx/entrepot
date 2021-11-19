@@ -164,19 +164,19 @@ public class Servers implements InitializingBean, DisposableBean {
         }
         var forceTimer = this.forceTimer;
         var appendLineFeed = confStorage.getAppendLineFeed().code();
-        var hangars = new DynamicWharves(name -> new DefaultHangar(name, confStorage.toRollingFileAppender(name), null,
+        var wharves = new DynamicWharves(name -> new DefaultHangar(name, confStorage.toRollingFileAppender(name), null,
                 appendLineFeed, forcePeriod, forceTimer));
         // HTTP router
         var router = new Router();
         for (var route : confHttpRoutes) {
-            addRoute(hangars, router, route);
+            addRoute(wharves, router, route);
         }
         log.debug("Configure HTTP router: {}", router);
 
         // RESP/RESP3 commands
         var commands = new LinkedHashMap<String, BiConsumer<ChannelHandlerContext, RedisRequest>>();
         for (var command : confRespCommands) {
-            addCommand(hangars, commands, command);
+            addCommand(wharves, commands, command);
         }
         // start up servers
         var httpServers = this.httpServers = new ArrayList<>(
@@ -240,7 +240,7 @@ public class Servers implements InitializingBean, DisposableBean {
         return sslContextProvider;
     }
 
-    private void addRoute(DynamicWharves hangars, Router router, HttpRouteProperties route) {
+    private void addRoute(DynamicWharves wharves, Router router, HttpRouteProperties route) {
         var pathVar = route.getPathVar();
         var queryVar = route.getQueryVar();
         var method = HttpMethod.valueOf(route.getMethod());
@@ -255,7 +255,7 @@ public class Servers implements InitializingBean, DisposableBean {
                 router.add(path, method, ctx -> {
                     try {
                         var name = ctx.pathVariables().getString(pathVar).get();
-                        var hangar = hangars.get(name)
+                        var hangar = wharves.get(name)
                                 .orElseThrow(() -> new IllegalArgumentException("unknown hangar `" + name + "`"));
                         var data = ctx.queryParameter(queryVar)
                                 .orElseThrow(() -> new IllegalArgumentException(queryVar)).get(0)
@@ -281,7 +281,7 @@ public class Servers implements InitializingBean, DisposableBean {
                             return ctx.simpleRespond(HttpResponseStatus.UNSUPPORTED_MEDIA_TYPE);
                         }
                         var name = ctx.pathVariables().getString(pathVar).get();
-                        var hangar = hangars.get(name).get();
+                        var hangar = wharves.get(name).get();
                         return hangar.transferFrom(ctx.body().retain()).handleAsync((nil, e) -> {
                             if (e != null) {
                                 return ctx.respondError(e);
@@ -303,7 +303,7 @@ public class Servers implements InitializingBean, DisposableBean {
                 router.add(path, method, ctx -> {
                     try {
                         var name = ctx.pathVariables().getString(pathVar).get();
-                        var hangar = hangars.get(name)
+                        var hangar = wharves.get(name)
                                 .orElseThrow(() -> new IllegalArgumentException("unknown hangar `" + name + "`"));
                         var raw = ctx.queryParameter(queryVar).orElseThrow(() -> new IllegalArgumentException(queryVar))
                                 .get(0).getBytes(CharsetUtil.UTF_8);
@@ -329,7 +329,7 @@ public class Servers implements InitializingBean, DisposableBean {
                             return ctx.simpleRespond(HttpResponseStatus.UNSUPPORTED_MEDIA_TYPE);
                         }
                         var name = ctx.pathVariables().getString(pathVar).get();
-                        var hangar = hangars.get(name).get();
+                        var hangar = wharves.get(name).get();
                         var raw = ByteBufUtil.getBytes(ctx.body());
                         var data = cook.cook(raw, ctx.remoteAddress());
                         var buf = ctx.alloc().buffer(data.length);
@@ -348,32 +348,32 @@ public class Servers implements InitializingBean, DisposableBean {
         }
     }
 
-    private void addCommand(DynamicWharves hangars,
+    private void addCommand(DynamicWharves wharves,
             Map<String, BiConsumer<ChannelHandlerContext, RedisRequest>> commands, RespCommandProperties command) {
         var cmd = command.getCommand();
         if (command.isBatchEnabled() && cmd.batchSupported()) {
             // batch
             if (command.getType() == WharfType.RAW) {
-                commands.put(cmd.name(), batchRaw(hangars, command));
+                commands.put(cmd.name(), batchRaw(wharves, command));
             } else if (command.getType() == WharfType.COOK) {
-                commands.put(cmd.name(), batchCook(hangars, command));
+                commands.put(cmd.name(), batchCook(wharves, command));
             }
         } else {
             if (command.getType() == WharfType.RAW) {
-                commands.put(cmd.name(), raw(hangars, command));
+                commands.put(cmd.name(), raw(wharves, command));
             } else if (command.getType() == WharfType.COOK) {
-                commands.put(cmd.name(), cook(hangars, command));
+                commands.put(cmd.name(), cook(wharves, command));
             }
         }
     }
 
-    private BiConsumer<ChannelHandlerContext, RedisRequest> batchRaw(DynamicWharves hangars,
+    private BiConsumer<ChannelHandlerContext, RedisRequest> batchRaw(DynamicWharves wharves,
             RespCommandProperties command) {
         var resultMapper = command.getCommand().resultMapper();
         return (ctx, msg) -> {
             try {
                 var name = msg.argument(1).textValue();
-                var hangar = hangars.get(name).get();
+                var hangar = wharves.get(name).get();
                 var ch = ctx.channel();
                 if (msg.size() == 3) {
                     var raw = msg.argument(2).content().retain();
@@ -402,14 +402,14 @@ public class Servers implements InitializingBean, DisposableBean {
         };
     }
 
-    private BiConsumer<ChannelHandlerContext, RedisRequest> batchCook(DynamicWharves hangars,
+    private BiConsumer<ChannelHandlerContext, RedisRequest> batchCook(DynamicWharves wharves,
             RespCommandProperties command) {
         var resultMapper = command.getCommand().resultMapper();
         var cook = generateCook(command);
         return (ctx, msg) -> {
             try {
                 var name = msg.argument(1).textValue();
-                var hangar = hangars.get(name).get();
+                var hangar = wharves.get(name).get();
                 var ch = ctx.channel();
                 if (msg.size() == 3) {
                     var raw = ByteBufUtil.getBytes(msg.argument(2).content());
@@ -445,12 +445,12 @@ public class Servers implements InitializingBean, DisposableBean {
         };
     }
 
-    private BiConsumer<ChannelHandlerContext, RedisRequest> raw(DynamicWharves hangars, RespCommandProperties command) {
+    private BiConsumer<ChannelHandlerContext, RedisRequest> raw(DynamicWharves wharves, RespCommandProperties command) {
         var resultMapper = command.getCommand().resultMapper();
         return (ctx, msg) -> {
             try {
                 var name = msg.argument(1).textValue();
-                var hangar = hangars.get(name).get();
+                var hangar = wharves.get(name).get();
                 var ch = ctx.channel();
                 var raw = msg.argument(2).content().retain();
                 hangar.transferFrom(raw).handleAsync((nil, e) -> {
@@ -465,14 +465,14 @@ public class Servers implements InitializingBean, DisposableBean {
         };
     }
 
-    private BiConsumer<ChannelHandlerContext, RedisRequest> cook(DynamicWharves hangars,
+    private BiConsumer<ChannelHandlerContext, RedisRequest> cook(DynamicWharves wharves,
             RespCommandProperties command) {
         var resultMapper = command.getCommand().resultMapper();
         var cook = generateCook(command);
         return (ctx, msg) -> {
             try {
                 var name = msg.argument(1).textValue();
-                var hangar = hangars.get(name).get();
+                var hangar = wharves.get(name).get();
                 var ch = ctx.channel();
                 var raw = ByteBufUtil.getBytes(msg.argument(2).content());
                 var data = cook.cook(raw, ((InetSocketAddress) ch.remoteAddress()).getHostString());
