@@ -5,16 +5,16 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import com.github.fmjsjx.entrepot.server.util.RespUtil;
-import com.github.fmjsjx.libnetty.handler.ssl.SslContextProvider;
+import com.github.fmjsjx.libnetty.handler.ssl.ChannelSslInitializer;
 import com.github.fmjsjx.libnetty.resp.RedisRequest;
 import com.github.fmjsjx.libnetty.resp.RedisRequestDecoder;
 import com.github.fmjsjx.libnetty.resp.RespMessageEncoder;
 import com.github.fmjsjx.libnetty.resp.util.IgnoredCaseAsciiKeyMap;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 
 public class Resp3ServerInitializer extends ChannelInitializer<SocketChannel> {
@@ -23,14 +23,14 @@ public class Resp3ServerInitializer extends ChannelInitializer<SocketChannel> {
 
     private final int timeoutSeconds;
     private final boolean sslEnabled;
-    private final SslContextProvider sslContextProvider;
+    private final ChannelSslInitializer<Channel> channelSslInitializer;
     private final IgnoredCaseAsciiKeyMap<BiConsumer<ChannelHandlerContext, RedisRequest>> commandProcedures;
 
-    public Resp3ServerInitializer(String version, int timeoutSeconds, Optional<SslContextProvider> sslContextProvider,
+    public Resp3ServerInitializer(String version, int timeoutSeconds, Optional<ChannelSslInitializer<Channel>> channelSslInitializer,
             Map<String, BiConsumer<ChannelHandlerContext, RedisRequest>> commands) {
         this.timeoutSeconds = timeoutSeconds;
-        this.sslEnabled = sslContextProvider.isPresent();
-        this.sslContextProvider = sslContextProvider.orElse(null);
+        this.sslEnabled = channelSslInitializer.isPresent();
+        this.channelSslInitializer = channelSslInitializer.orElse(null);
         var commandProcedures = this.commandProcedures = new IgnoredCaseAsciiKeyMap<>();
         commandProcedures.put("HELLO", RespUtil.hello("carrier", version));
         commandProcedures.put("PING", RespUtil.ping());
@@ -48,8 +48,7 @@ public class Resp3ServerInitializer extends ChannelInitializer<SocketChannel> {
             pipeline.addLast(new ReadTimeoutHandler(timeoutSeconds));
         }
         if (sslEnabled) {
-            SslContext sslContext = sslContextProvider.get();
-            pipeline.addLast(sslContext.newHandler(ch.alloc()));
+            channelSslInitializer.init(ch);
         }
         pipeline.addLast(respMessageEncoder);
         pipeline.addLast(new RedisRequestDecoder());

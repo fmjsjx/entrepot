@@ -6,7 +6,9 @@ import static io.netty.handler.codec.http.HttpMethod.PATCH;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpMethod.PUT;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
@@ -19,16 +21,20 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import javax.net.ssl.SSLException;
+
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.github.fmjsjx.entrepot.core.wharf.DefaultHangar;
 import com.github.fmjsjx.entrepot.core.wharf.DynamicWharves;
 import com.github.fmjsjx.entrepot.server.conf.EntrepotServerProperties;
 import com.github.fmjsjx.entrepot.server.conf.WharfType;
 import com.github.fmjsjx.entrepot.server.conf.HttpRouteProperties;
+import com.github.fmjsjx.entrepot.server.conf.KeyCertProperties;
 import com.github.fmjsjx.entrepot.server.conf.RespCommandProperties;
 import com.github.fmjsjx.entrepot.server.conf.ServerProperties;
 import com.github.fmjsjx.entrepot.server.conf.ServerProperties.ServerType;
@@ -39,7 +45,9 @@ import com.github.fmjsjx.entrepot.server.resp.RespServerInitializer;
 import com.github.fmjsjx.entrepot.server.util.RespUtil;
 import com.github.fmjsjx.entrepot.server.util.SystemUtil;
 import com.github.fmjsjx.libcommon.util.StringUtil;
-import com.github.fmjsjx.libnetty.handler.ssl.SslContextProvider;
+import com.github.fmjsjx.libcommon.yaml.Jackson2YamlLibrary;
+import com.github.fmjsjx.libnetty.handler.ssl.ChannelSslInitializer;
+import com.github.fmjsjx.libnetty.handler.ssl.SniHandlerProviders;
 import com.github.fmjsjx.libnetty.handler.ssl.SslContextProviders;
 import com.github.fmjsjx.libnetty.http.server.DefaultHttpServer;
 import com.github.fmjsjx.libnetty.http.server.HttpServer;
@@ -54,6 +62,7 @@ import com.github.fmjsjx.libnetty.transport.TransportLibrary;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
@@ -64,7 +73,12 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.cors.CorsConfig;
 import io.netty.handler.codec.http.cors.CorsConfigBuilder;
+import io.netty.handler.ssl.OpenSsl;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.util.CharsetUtil;
+import io.netty.util.DomainWildcardMappingBuilder;
 import io.netty.util.HashedWheelTimer;
 import io.netty.util.Timer;
 import io.netty.util.concurrent.DefaultThreadFactory;
@@ -118,6 +132,16 @@ public class Servers implements InitializingBean, DisposableBean {
         default:
             throw new IllegalArgumentException("Unsupported cook processor `" + command.getProcessor() + "`");
         }
+    }
+
+    private static final SslContext buildSslContext(KeyCertProperties ssl) throws SSLException {
+        var keyCertChainFile = new File(ssl.getKeyCertChainFile());
+        var keyFile = new File(ssl.getKeyFile());
+        var sslContextBuilder = SslContextBuilder.forServer(keyCertChainFile, keyFile, ssl.getKeyPassword());
+        if (OpenSsl.isAvailable()) {
+            sslContextBuilder.sslProvider(SslProvider.OPENSSL_REFCNT);
+        }
+        return sslContextBuilder.build();
     }
 
     @Autowired
@@ -192,13 +216,13 @@ public class Servers implements InitializingBean, DisposableBean {
                 new DefaultThreadFactory("worker"));
         var channelClass = transportLibrary.serverChannelClass();
         for (var serverCfg : confServers) {
-            var sslContextProvider = sslContextProvider(serverCfg);
+            var channelSslInitializer = channelSslInitializer(serverCfg);
             if (serverCfg.getType() == ServerType.HTTP) {
                 var server = new DefaultHttpServer(serverCfg.getPort()).address(serverCfg.getAddress())
                         .corsConfig(corsConfig).soBackLog(1024).timeout(serverCfg.getConnectionTimeout())
                         .maxContentLength((int) serverCfg.getMaxHttpPostSize().toBytes())
                         .transport(bossGroup, workerGroup, channelClass);
-                sslContextProvider.ifPresent(server::enableSsl);
+                channelSslInitializer.ifPresent(server::enableSsl);
                 server.defaultHandlerProvider()
                         .addLast(new AccessLogger(new Slf4jLoggerWrapper("accessLogger"), LogFormat.BASIC2))
                         .addLast(router);
@@ -209,7 +233,7 @@ public class Servers implements InitializingBean, DisposableBean {
                 var bootstrap = new ServerBootstrap().group(bossGroup, workerGroup).channel(channelClass)
                         .option(ChannelOption.SO_BACKLOG, 512).childOption(ChannelOption.TCP_NODELAY, true)
                         .childOption(ChannelOption.AUTO_READ, false).childHandler(new RespServerInitializer(
-                                (int) serverCfg.getConnectionTimeout().getSeconds(), sslContextProvider, commands));
+                                (int) serverCfg.getConnectionTimeout().getSeconds(), channelSslInitializer, commands));
                 var addr = serverCfg.socketAddress();
                 bootstrap.bind(addr).sync();
                 respServerAddresses.add(addr);
@@ -219,7 +243,7 @@ public class Servers implements InitializingBean, DisposableBean {
                         .option(ChannelOption.SO_BACKLOG, 512).childOption(ChannelOption.TCP_NODELAY, true)
                         .childOption(ChannelOption.AUTO_READ, false)
                         .childHandler(new Resp3ServerInitializer(appProperties.getVersion(),
-                                (int) serverCfg.getConnectionTimeout().getSeconds(), sslContextProvider, commands));
+                                (int) serverCfg.getConnectionTimeout().getSeconds(), channelSslInitializer, commands));
                 var addr = serverCfg.socketAddress();
                 bootstrap.bind(addr).sync();
                 resp3ServerAddresses.add(addr);
@@ -228,16 +252,30 @@ public class Servers implements InitializingBean, DisposableBean {
         }
     }
 
-    private Optional<SslContextProvider> sslContextProvider(ServerProperties serverCfg) {
-        Optional<SslContextProvider> sslContextProvider = Optional.empty();
+    private Optional<ChannelSslInitializer<Channel>> channelSslInitializer(ServerProperties serverCfg)
+            throws SSLException {
         if (serverCfg.sslEnabled()) {
             var ssl = serverCfg.getSsl();
-            var keyCertChainFile = new File(ssl.getKeyCertChainFile());
-            var keyFile = new File(ssl.getKeyFile());
-            sslContextProvider = Optional
-                    .of(SslContextProviders.forServer(keyCertChainFile, keyFile, ssl.getKeyPassword()));
+            var sslContext = buildSslContext(ssl);
+            if (ssl.getSni().isEnabled()) {
+                var mapping = new DomainWildcardMappingBuilder<>(sslContext);
+                try (var in = new BufferedInputStream(new FileInputStream(ssl.getSni().getMappingFile()))) {
+                    Map<String, KeyCertProperties> map = Jackson2YamlLibrary.getInstance().loads(in,
+                            TypeFactory.defaultInstance().constructMapType(LinkedHashMap.class, String.class,
+                                    KeyCertProperties.class));
+                    for (var entry : map.entrySet()) {
+                        mapping.add(entry.getKey(), buildSslContext(entry.getValue()));
+                    }
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("unexpected error occurs when passing SNI mapping file `"
+                            + ssl.getSni().getMappingFile() + "`", e);
+                }
+                return Optional.of(ChannelSslInitializer.of(SniHandlerProviders.create(mapping.build())));
+            } else {
+                return Optional.of(ChannelSslInitializer.of(SslContextProviders.simple(sslContext)));
+            }
         }
-        return sslContextProvider;
+        return Optional.empty();
     }
 
     private void addRoute(DynamicWharves wharves, Router router, HttpRouteProperties route) {

@@ -43,6 +43,17 @@ public class SystemUtil {
         return new BufferedInputStream(new FileInputStream(confFile(filename)));
     }
 
+    public static final void validateFile(String path) {
+        var file = new File(path);
+        if (!file.exists()) {
+            throw new IllegalArgumentException("file on path `" + path + "` doesn't exist");
+        } else {
+            if (!file.isFile()) {
+                throw new IllegalArgumentException("path at `" + path + "` must be a file");
+            }
+        }
+    }
+
     private SystemUtil() {
     }
 }

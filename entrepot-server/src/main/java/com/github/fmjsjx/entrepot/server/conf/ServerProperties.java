@@ -105,7 +105,7 @@ public class ServerProperties {
         var ssl = this.ssl;
         return ssl != null && ssl.isEnabled();
     }
-    
+
     public SocketAddress socketAddress() {
         if (address == null) {
             return new InetSocketAddress(port);

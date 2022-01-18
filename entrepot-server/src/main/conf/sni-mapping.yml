@@ -1,0 +1,5 @@
+# wildcard domain name: *.test.com
+'*.test.com':
+  key-cert-chain-file: /etc/ssl/test.com/cert.pem
+  key-file: /etc/ssl/test.com/pkcs8_key.pem
+  #key-password: password

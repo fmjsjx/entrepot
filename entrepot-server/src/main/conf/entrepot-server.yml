@@ -13,6 +13,9 @@ servers:
     #key-cert-chain-file: /path/to/cert.pem
     #key-file: /path/to/key.pem
     #key-password: password
+    #sni:
+    #  enabled: true
+    #  mapping-file: sni-mapping.yml
   #max-http-post-size: 16M
 - type: resp3
   address: 127.0.0.1
