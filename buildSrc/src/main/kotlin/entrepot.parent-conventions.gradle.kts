@@ -40,6 +40,10 @@ tasks.compileJava {
 tasks.test {
     // Use junit platform for unit tests.
     useJUnitPlatform()
+    val javaToolchains = project.extensions.getByType<JavaToolchainService>()
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    })
 }
 
 tasks.jar {
