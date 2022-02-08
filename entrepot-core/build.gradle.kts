@@ -7,6 +7,7 @@ description = "Entrepot Core"
 dependencies {
     // spring-boot-dependencies
     api(platform("org.springframework.boot:spring-boot-dependencies:2.6.3"))
+    annotationProcessor(platform("org.springframework.boot:spring-boot-dependencies:2.6.3"))
     
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
