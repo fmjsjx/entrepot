@@ -4,8 +4,8 @@
 # Log file
 *.log
 *.log.gz
-*.log.zip
 *.log.bz2
+*.log.zip
 
 # BlueJ files
 *.ctxt
@@ -43,3 +43,19 @@ target/
 # IntelliJ IDEA
 .idea/
 *.iml
+
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle GUI config
+gradle-app.setting
+
+# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
+
+# Cache of project
+.gradletasknamecache
+
+# Ignore Gradle build output directory
+build
+/bin/
