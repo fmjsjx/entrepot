@@ -29,6 +29,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.github.fmjsjx.entrepot.core.appender.RollingFileAppender;
+import com.github.fmjsjx.entrepot.core.appender.policy.RollingPolicies;
 import com.github.fmjsjx.entrepot.core.wharf.DefaultHangar;
 import com.github.fmjsjx.entrepot.core.wharf.DynamicWharves;
 import com.github.fmjsjx.entrepot.server.conf.EntrepotServerProperties;
@@ -38,6 +40,7 @@ import com.github.fmjsjx.entrepot.server.conf.KeyCertProperties;
 import com.github.fmjsjx.entrepot.server.conf.RespCommandProperties;
 import com.github.fmjsjx.entrepot.server.conf.ServerProperties;
 import com.github.fmjsjx.entrepot.server.conf.ServerProperties.ServerType;
+import com.github.fmjsjx.entrepot.server.conf.StorageProperties;
 import com.github.fmjsjx.entrepot.server.cook.Cook;
 import com.github.fmjsjx.entrepot.server.cook.MergeJsonFieldsCook;
 import com.github.fmjsjx.entrepot.server.resp.Resp3ServerInitializer;
@@ -188,8 +191,8 @@ public class Servers implements InitializingBean, DisposableBean {
         }
         var forceTimer = this.forceTimer;
         var appendLineFeed = confStorage.getAppendLineFeed().code();
-        var wharves = new DynamicWharves(name -> new DefaultHangar(name, confStorage.toRollingFileAppender(name), null,
-                appendLineFeed, forcePeriod, forceTimer));
+        var wharves = new DynamicWharves(name -> new DefaultHangar(name, createRollingFileAppender(confStorage, name),
+                null, appendLineFeed, forcePeriod, forceTimer));
         // HTTP router
         var router = new Router();
         for (var route : confHttpRoutes) {
@@ -250,6 +253,11 @@ public class Servers implements InitializingBean, DisposableBean {
                 log.info("Server RESP3 at {} started.", addr);
             }
         }
+    }
+
+    private RollingFileAppender createRollingFileAppender(StorageProperties storageProperties, String name) {
+        return new RollingFileAppender(storageProperties.toParentPath(name),
+                RollingPolicies.timeBasedPolicy(storageProperties.fileNamePattern(name)));
     }
 
     private Optional<ChannelSslInitializer<Channel>> channelSslInitializer(ServerProperties serverCfg)

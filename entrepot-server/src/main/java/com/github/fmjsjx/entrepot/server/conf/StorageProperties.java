@@ -7,9 +7,6 @@ import java.time.Duration;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.github.fmjsjx.entrepot.core.appender.RollingFileAppender;
-import com.github.fmjsjx.entrepot.core.appender.policy.RollingPolicies;
-import com.github.fmjsjx.entrepot.core.appender.policy.TimeBasedPolicy;
 import com.github.fmjsjx.entrepot.core.wharf.DefaultHangar;
 import com.github.fmjsjx.entrepot.server.util.DurationUtil;
 
@@ -80,16 +77,12 @@ public class StorageProperties {
         this.appendLineFeed = AppendLineFeed.of(appendLineFeed);
     }
 
-    public TimeBasedPolicy toTimeBasedPolicy(String name) {
-        return RollingPolicies.timeBasedPolicy(filePattern.replace("%name", name));
+    public String fileNamePattern(String name) {
+        return filePattern.replace("%name", name);
     }
 
     public Path toParentPath(String name) {
         return nameAsFolder ? Paths.get(dir, name) : Paths.get(dir);
-    }
-
-    public RollingFileAppender toRollingFileAppender(String name) {
-        return new RollingFileAppender(toParentPath(name), toTimeBasedPolicy(name));
     }
 
     public void validate() {
