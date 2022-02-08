@@ -11,7 +11,7 @@
   <artifactId>entrepot-core</artifactId>
   <packaging>jar</packaging>
   <name>Entrepot Core</name>
-  <description>Cntrepot Core Library</description>
+  <description>Entrepot Core Library</description>
 
   <dependencies>
     <dependency>
