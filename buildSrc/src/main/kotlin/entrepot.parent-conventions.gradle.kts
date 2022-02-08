@@ -46,11 +46,6 @@ tasks.test {
     })
 }
 
-tasks.jar {
-    // Disable plain Jar for Sprint Boot
-    enabled = false
-}
-
 tasks.javadoc {
     enabled = false
 }
