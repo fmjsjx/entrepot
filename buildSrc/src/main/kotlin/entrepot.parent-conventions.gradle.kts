@@ -1,5 +1,5 @@
 plugins {
-    `java-library`
+	`java-library`
 }
 
 group = "com.github.fmjsjx"

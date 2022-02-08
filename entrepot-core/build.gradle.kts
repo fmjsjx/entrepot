@@ -1,5 +1,4 @@
 plugins {
-	`java-library`
     id("entrepot.parent-conventions")
 }
 
